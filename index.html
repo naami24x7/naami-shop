@@ -99,6 +99,24 @@
   .tab.active{color:#05080f; background:var(--accent); border-color:var(--accent);}
   .tab:hover:not(.active){border-color:var(--border2); color:var(--text);}
 
+  .subfilters{display:flex; gap:7px; overflow-x:auto; max-width:1040px; margin:12px auto 0; padding:0 20px 2px;
+    scrollbar-width:none;}
+  .subfilters::-webkit-scrollbar{display:none;}
+  .subfilters.hidden{display:none;}
+  .subfilter{flex-shrink:0; font-size:11.5px; font-weight:600; color:var(--text2); background:transparent;
+    border:1px solid var(--border); padding:6px 12px; border-radius:100px; cursor:pointer; white-space:nowrap;
+    transition:.15s;}
+  .subfilter.active{color:var(--accent); background:rgba(0,198,255,.1); border-color:var(--accent);}
+
+  .offers-wrap{max-width:1040px; margin:26px auto 0; padding:0 0 0 20px;}
+  .offers-wrap .section-title{padding:0 20px 0 0;}
+  .offers-strip{display:flex; gap:9px; overflow-x:auto; scroll-behavior:smooth; scroll-snap-type:x proximity;
+    padding:0 20px 10px 0; scrollbar-width:none;}
+  .offers-strip::-webkit-scrollbar{display:none;}
+  .card-mini{flex:0 0 108px; scroll-snap-align:start;}
+  .card-mini .title{font-size:10.5px; -webkit-line-clamp:2;}
+  .card-mini .price{font-size:12.5px;}
+
   main{max-width:1040px; margin:0 auto; padding:22px 20px 60px;}
   .section-title{font-size:13px; font-weight:600; color:var(--text2); text-transform:uppercase;
     letter-spacing:1.5px; margin:0 0 14px;}
@@ -166,7 +184,13 @@
   <div id="search-result"></div>
 </div>
 
+<div class="offers-wrap">
+  <div class="section-title">🔥 Top Offers Right Now</div>
+  <div class="offers-strip" id="offers-strip"></div>
+</div>
+
 <div class="tabs" id="tabs"></div>
+<div class="subfilters hidden" id="subfilters"></div>
 
 <main>
   <div class="section-title" id="grid-title">Today's Finds</div>
@@ -188,9 +212,18 @@ const CATEGORY_LABELS = {
   "beauty": "Beauty",
   "mobile": "Mobile &amp; Tech",
   "laptop": "Laptops",
+  "kids": "Kids",
 };
 
+const SUBFILTERS = [
+  {key:"discount",   label:"🔥 Best Discount"},
+  {key:"bestseller", label:"🏆 Best Seller"},
+  {key:"trending",   label:"📈 Trending"},
+  {key:"toprated",   label:"⭐ Top Rated"},
+];
+
 let currentCategory = null;
+let currentSort = "discount";
 let allDeals = [];
 
 function esc(s){
@@ -222,10 +255,43 @@ function renderTabs(){
   tabs.querySelectorAll('.tab').forEach(el=>{
     el.addEventListener('click', ()=>{
       currentCategory = el.dataset.cat || null;
+      currentSort = "discount";
       renderTabs();
+      renderSubfilters();
       loadDeals();
     });
   });
+}
+
+function renderSubfilters(){
+  const box = document.getElementById('subfilters');
+  if(!currentCategory){ box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden');
+  box.innerHTML = SUBFILTERS.map(s =>
+    `<div class="subfilter ${s.key===currentSort?'active':''}" data-sort="${s.key}">${s.label}</div>`
+  ).join('');
+  box.querySelectorAll('.subfilter').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      currentSort = el.dataset.sort;
+      renderSubfilters();
+      loadDeals();
+    });
+  });
+}
+
+function cardHTML(d, mini){
+  return `
+    <a class="card ${mini?'card-mini':''}" href="${esc(d.link)}" target="_blank" rel="nofollow sponsored noopener">
+      <div class="thumb">
+        ${discountBadge(d)}
+        <img src="${esc(d.image)}" alt="${esc(d.title)}" loading="lazy" onerror="this.style.opacity=0">
+      </div>
+      <div class="body">
+        <div class="title">${esc(d.title)}</div>
+        <div class="price-row">${priceRow(d)}</div>
+        ${d.short_code ? `<span class="code-chip mono">#${esc(d.short_code)}</span>` : ''}
+      </div>
+    </a>`;
 }
 
 function renderGrid(deals){
@@ -236,19 +302,7 @@ function renderGrid(deals){
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1;">No deals here yet — check back soon or try another category.</div>`;
     return;
   }
-  grid.innerHTML = deals.map(d => `
-    <a class="card" href="${esc(d.link)}" target="_blank" rel="nofollow sponsored noopener">
-      <div class="thumb">
-        ${discountBadge(d)}
-        <img src="${esc(d.image)}" alt="${esc(d.title)}" loading="lazy" onerror="this.style.opacity=0">
-      </div>
-      <div class="body">
-        <div class="title">${esc(d.title)}</div>
-        <div class="price-row">${priceRow(d)}</div>
-        ${d.short_code ? `<span class="code-chip mono">#${esc(d.short_code)}</span>` : ''}
-      </div>
-    </a>
-  `).join('');
+  grid.innerHTML = deals.map(d => cardHTML(d, false)).join('');
 }
 
 function renderSkeletons(n=8){
@@ -260,6 +314,7 @@ async function loadDeals(retry=0){
   try{
     const url = new URL(API_BASE + '/api/public/deals');
     url.searchParams.set('limit', 60);
+    url.searchParams.set('sort', currentSort);
     if(currentCategory) url.searchParams.set('category', currentCategory);
     const res = await fetch(url);
     const data = await res.json();
@@ -275,6 +330,49 @@ async function loadDeals(retry=0){
     } else {
       document.getElementById('grid').innerHTML =
         `<div class="state error" style="grid-column:1/-1;">Couldn't load deals — check back in a minute.</div>`;
+    }
+  }
+}
+
+// ── "Top Offers" strip: 2 highest-discount picks from every category,
+// gently auto-scrolls to grab attention, pauses while the user is
+// touching/dragging it, resumes a couple seconds after they let go. ──────
+let offersAutoScroll = null;
+
+function startOffersAutoScroll(){
+  const strip = document.getElementById('offers-strip');
+  clearInterval(offersAutoScroll);
+  if(!strip.children.length) return;
+  offersAutoScroll = setInterval(()=>{
+    if(!strip.isConnected) return clearInterval(offersAutoScroll);
+    const atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 4;
+    strip.scrollTo({left: atEnd ? 0 : strip.scrollLeft + 118, behavior:'smooth'});
+  }, 2200);
+}
+
+async function loadTopOffers(retry=0){
+  const strip = document.getElementById('offers-strip');
+  if(retry===0) strip.innerHTML = Array.from({length:6}).map(()=>`<div class="skel card-mini"></div>`).join('');
+  try{
+    const url = new URL(API_BASE + '/api/public/top_deals');
+    url.searchParams.set('per_category', 2);
+    const res = await fetch(url);
+    const data = await res.json();
+    const deals = data.deals || [];
+    if(!deals.length){ strip.innerHTML = ''; return; }
+    strip.innerHTML = deals.map(d => cardHTML(d, true)).join('');
+    let resumeTimer;
+    strip.addEventListener('pointerdown', ()=>{
+      clearInterval(offersAutoScroll);
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(startOffersAutoScroll, 3000);
+    });
+    startOffersAutoScroll();
+  }catch(e){
+    if(retry < 4){
+      setTimeout(()=>loadTopOffers(retry+1), 4000 + retry*2000);
+    } else {
+      strip.innerHTML = '';
     }
   }
 }
@@ -333,6 +431,8 @@ document.getElementById('code-btn').addEventListener('click', searchCode);
 document.getElementById('code-input').addEventListener('keydown', e=>{ if(e.key==='Enter') searchCode(); });
 
 renderTabs();
+renderSubfilters();
+loadTopOffers();
 loadDeals();
 </script>
 </body>
