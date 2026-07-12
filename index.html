@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAAMI — Deals Hub</title>
+<meta name="description" content="Search your product code or browse today's Amazon finds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#05080f; --surface:#090e1a; --card:#0d1525; --card2:#111d30;
+    --border:#182640; --border2:#1e3050;
+    --accent:#00c6ff; --accent2:#0055ff;
+    --green:#00e676; --red:#ff3d57; --yellow:#ffd600;
+    --text:#d8e8f8; --text2:#7a9bbf; --muted:#3d5470;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Space Grotesk',system-ui,sans-serif;}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+
+  /* ambient scan-grid backdrop */
+  body::before{
+    content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(0,198,255,.10), transparent 60%),
+      linear-gradient(rgba(0,198,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,198,255,.035) 1px, transparent 1px);
+    background-size:auto, 42px 42px, 42px 42px;
+  }
+
+  header{padding:34px 20px 22px; text-align:center; max-width:720px; margin:0 auto;}
+  .brand{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px;}
+  .radar{position:relative; width:34px; height:34px; flex-shrink:0;}
+  .radar .ring{position:absolute; inset:0; border:1.5px solid var(--accent); border-radius:50%; opacity:0;
+    animation:pulse 2.6s cubic-bezier(.2,.7,.3,1) infinite;}
+  .radar .ring:nth-child(2){animation-delay:.9s;}
+  .radar .dot{position:absolute; inset:11px; background:var(--accent); border-radius:50%;
+    box-shadow:0 0 10px 2px rgba(0,198,255,.7);}
+  @keyframes pulse{0%{transform:scale(.35);opacity:.9;}100%{transform:scale(1.15);opacity:0;}}
+  @media (prefers-reduced-motion:reduce){.radar .ring{animation:none;opacity:.35;}}
+  .brand-name{font-size:22px; font-weight:700; letter-spacing:.5px;}
+  .brand-name span{color:var(--accent);}
+  .eyebrow{font-size:10.5px; letter-spacing:2.5px; color:var(--text2); text-transform:uppercase; font-weight:600;}
+  header p.tag{color:var(--text2); font-size:14px; margin:14px 0 0; line-height:1.5;}
+
+  .search-wrap{max-width:520px; margin:22px auto 0; padding:0 20px;}
+  .search-box{display:flex; gap:8px; background:var(--card); border:1px solid var(--border2);
+    border-radius:14px; padding:6px; box-shadow:0 0 0 1px rgba(0,198,255,.04) inset;}
+  .search-box:focus-within{border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,198,255,.12);}
+  .search-box input{flex:1; background:transparent; border:0; outline:0; color:var(--text);
+    font-family:'JetBrains Mono',monospace; font-size:15px; letter-spacing:1.5px; text-transform:uppercase;
+    padding:10px 8px;}
+  .search-box input::placeholder{color:var(--muted); letter-spacing:.5px;}
+  .search-box button{background:linear-gradient(135deg,var(--accent),var(--accent2)); border:0; color:#05080f;
+    font-weight:700; font-size:13px; border-radius:9px; padding:0 18px; cursor:pointer; letter-spacing:.3px;}
+  .search-box button:active{transform:scale(.97);}
+  .search-hint{text-align:center; font-size:11.5px; color:var(--muted); margin-top:8px;}
+
+  #search-result{max-width:520px; margin:14px auto 0; padding:0 20px;}
+
+  .tabs{display:flex; gap:8px; overflow-x:auto; max-width:1040px; margin:30px auto 0; padding:0 20px 4px;
+    scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--text2); background:var(--card);
+    border:1px solid var(--border); padding:8px 15px; border-radius:100px; cursor:pointer; white-space:nowrap;
+    transition:.15s;}
+  .tab.active{color:#05080f; background:var(--accent); border-color:var(--accent);}
+  .tab:hover:not(.active){border-color:var(--border2); color:var(--text);}
+
+  main{max-width:1040px; margin:0 auto; padding:22px 20px 60px;}
+  .section-title{font-size:13px; font-weight:600; color:var(--text2); text-transform:uppercase;
+    letter-spacing:1.5px; margin:0 0 14px;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    display:flex; flex-direction:column; text-decoration:none; color:var(--text); position:relative;
+    transition:border-color .15s, transform .15s;}
+  .card:hover{border-color:var(--accent); transform:translateY(-2px);}
+  .card .thumb{aspect-ratio:1/1; background:#fff; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; position:relative;}
+  .card .thumb img{width:100%; height:100%; object-fit:contain; padding:10px;}
+  .badge{position:absolute; top:8px; left:8px; background:var(--red); color:#fff; font-size:10.5px;
+    font-weight:700; padding:3px 7px; border-radius:6px;}
+  .card .body{padding:10px 11px 12px; display:flex; flex-direction:column; gap:6px; flex:1;}
+  .card .title{font-size:12px; line-height:1.35; color:var(--text); font-weight:500;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:32px;}
+  .price-row{display:flex; align-items:baseline; gap:6px;}
+  .price{font-size:14.5px; font-weight:700; color:var(--green);}
+  .list-price{font-size:11px; color:var(--muted); text-decoration:line-through;}
+  .code-chip{margin-top:auto; align-self:flex-start; font-size:10px; color:var(--accent);
+    background:rgba(0,198,255,.08); border:1px solid rgba(0,198,255,.25); padding:2px 7px;
+    border-radius:6px; letter-spacing:.5px;}
+
+  .empty, .state{text-align:center; color:var(--text2); font-size:13px; padding:40px 10px;}
+  .state.error{color:var(--red);}
+  .skel{background:linear-gradient(90deg,var(--card) 25%,var(--card2) 37%,var(--card) 63%);
+    background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:14px; aspect-ratio:.78;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .result-card{display:flex; gap:12px; background:var(--card); border:1px solid var(--accent);
+    border-radius:14px; padding:12px; text-decoration:none; color:var(--text); align-items:center;}
+  .result-card img{width:64px; height:64px; object-fit:contain; background:#fff; border-radius:8px; flex-shrink:0;}
+  .result-card .rt{font-size:12.5px; font-weight:600; line-height:1.3; margin-bottom:4px;}
+  .result-card .rp{font-size:13px; color:var(--green); font-weight:700;}
+  .result-card .cta{margin-left:auto; font-size:11.5px; font-weight:700; color:#05080f;
+    background:var(--accent); padding:8px 12px; border-radius:9px; flex-shrink:0;}
+
+  footer{text-align:center; padding:26px 20px 40px; color:var(--muted); font-size:11.5px;}
+  footer a{color:var(--text2);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="radar"><span class="ring"></span><span class="ring"></span><span class="dot"></span></div>
+    <div class="brand-name display">NAAMI<span>.</span></div>
+  </div>
+  <div class="eyebrow">Deals Hub</div>
+  <p class="tag">Got a code from a post? Type it below.<br>Or browse today's finds — new deals scanned daily.</p>
+</header>
+
+<div class="search-wrap">
+  <div class="search-box">
+    <input id="code-input" class="mono" type="text" maxlength="8" placeholder="e.g. 7F2A9"
+      autocapitalize="characters" autocomplete="off" inputmode="text">
+    <button id="code-btn">Find</button>
+  </div>
+  <div class="search-hint">The code is in the caption of the post you found this from</div>
+  <div id="search-result"></div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<main>
+  <div class="section-title" id="grid-title">Today's Finds</div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>
+  Prices &amp; availability update on Amazon's site — always confirm before buying.<br>
+  As an Amazon Associate, links here may earn a commission on qualifying purchases.
+</footer>
+
+<script>
+const API_BASE = "https://naami-xann.onrender.com"; // ⚠️ update if your Render URL differs
+
+const CATEGORY_LABELS = {
+  "home-kitchen": "Home &amp; Kitchen",
+  "bags-luggage": "Bags &amp; Luggage",
+  "pet-supplies": "Pet Supplies",
+  "beauty": "Beauty",
+  "mobile": "Mobile &amp; Tech",
+  "laptop": "Laptops",
+};
+
+let currentCategory = null;
+let allDeals = [];
+
+function esc(s){
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function priceRow(d){
+  let html = "";
+  if(d.price) html += `<span class="price">${esc(d.price)}</span>`;
+  if(d.list_price && d.list_price !== d.price) html += `<span class="list-price">${esc(d.list_price)}</span>`;
+  return html;
+}
+
+function discountBadge(d){
+  const pct = parseInt(d.discount_percent || 0, 10);
+  if(pct >= 10) return `<span class="badge">${pct}% OFF</span>`;
+  if(d.deal_text) return `<span class="badge">DEAL</span>`;
+  return "";
+}
+
+function renderTabs(){
+  const tabs = document.getElementById('tabs');
+  const cats = [{key:null,label:"All"}, ...Object.keys(CATEGORY_LABELS).map(k=>({key:k,label:CATEGORY_LABELS[k]}))];
+  tabs.innerHTML = cats.map(c =>
+    `<div class="tab ${c.key===currentCategory?'active':''}" data-cat="${c.key ?? ''}">${c.label}</div>`
+  ).join('');
+  tabs.querySelectorAll('.tab').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      currentCategory = el.dataset.cat || null;
+      renderTabs();
+      loadDeals();
+    });
+  });
+}
+
+function renderGrid(deals){
+  const grid = document.getElementById('grid');
+  const title = document.getElementById('grid-title');
+  title.textContent = currentCategory ? CATEGORY_LABELS[currentCategory].replace(/&amp;/,'&') : "Today's Finds";
+  if(!deals.length){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;">No deals here yet — check back soon or try another category.</div>`;
+    return;
+  }
+  grid.innerHTML = deals.map(d => `
+    <a class="card" href="${esc(d.link)}" target="_blank" rel="nofollow sponsored noopener">
+      <div class="thumb">
+        ${discountBadge(d)}
+        <img src="${esc(d.image)}" alt="${esc(d.title)}" loading="lazy" onerror="this.style.opacity=0">
+      </div>
+      <div class="body">
+        <div class="title">${esc(d.title)}</div>
+        <div class="price-row">${priceRow(d)}</div>
+        ${d.short_code ? `<span class="code-chip mono">#${esc(d.short_code)}</span>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
+function renderSkeletons(n=8){
+  document.getElementById('grid').innerHTML = Array.from({length:n}).map(()=>`<div class="skel"></div>`).join('');
+}
+
+async function loadDeals(){
+  renderSkeletons();
+  try{
+    const url = new URL(API_BASE + '/api/public/deals');
+    url.searchParams.set('limit', 60);
+    if(currentCategory) url.searchParams.set('category', currentCategory);
+    const res = await fetch(url);
+    const data = await res.json();
+    allDeals = data.deals || [];
+    renderGrid(allDeals);
+  }catch(e){
+    document.getElementById('grid').innerHTML =
+      `<div class="state error" style="grid-column:1/-1;">Couldn't load deals right now — the server may be waking up, try again in a few seconds.</div>`;
+  }
+}
+
+async function searchCode(){
+  const input = document.getElementById('code-input');
+  const code = input.value.trim().toUpperCase();
+  const box = document.getElementById('search-result');
+  if(!code) return;
+  box.innerHTML = `<div class="state">Searching…</div>`;
+  try{
+    const res = await fetch(`${API_BASE}/api/public/product/${encodeURIComponent(code)}`);
+    if(res.status === 404){
+      box.innerHTML = `<div class="state error">No product found for code "${esc(code)}" — double check the caption.</div>`;
+      return;
+    }
+    const data = await res.json();
+    const p = data.product;
+    box.innerHTML = `
+      <a class="result-card" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">
+        <img src="${esc(p.image)}" alt="" onerror="this.style.opacity=0">
+        <div style="flex:1;min-width:0;">
+          <div class="rt">${esc(p.title)}</div>
+          <div class="rp">${esc(p.price || '')}</div>
+        </div>
+        <span class="cta">Shop Now</span>
+      </a>`;
+  }catch(e){
+    box.innerHTML = `<div class="state error">Search failed — try again in a few seconds.</div>`;
+  }
+}
+
+document.getElementById('code-btn').addEventListener('click', searchCode);
+document.getElementById('code-input').addEventListener('keydown', e=>{ if(e.key==='Enter') searchCode(); });
+
+renderTabs();
+loadDeals();
+</script>
+</body>
+</html>
