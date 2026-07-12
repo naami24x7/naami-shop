@@ -139,6 +139,10 @@
   .list-price{font-size:10.5px; color:var(--muted); text-decoration:line-through;}
   .discount-pct{font-size:10.5px; color:var(--green); font-weight:700;}
   .price-missing{font-size:10.5px; color:var(--muted);}
+  .rating-row{font-size:10px; color:var(--text2); display:flex; align-items:center; gap:3px;}
+  .rating-row .rc{color:var(--muted);}
+  .deal-label{font-size:9.5px; font-weight:700; color:#fff; background:var(--red);
+    display:inline-block; padding:1.5px 6px; border-radius:4px; align-self:flex-start; letter-spacing:.2px;}
   .code-chip{margin-top:auto; align-self:flex-start; font-size:9px; color:var(--accent);
     background:rgba(0,198,255,.08); border:1px solid rgba(0,198,255,.25); padding:1px 6px;
     border-radius:5px; letter-spacing:.4px;}
@@ -279,6 +283,18 @@ function renderSubfilters(){
   });
 }
 
+function ratingRow(d){
+  const r = parseFloat(d.rating);
+  if(!r || isNaN(r)) return "";
+  const reviewsNum = parseInt(String(d.reviews||"0").replace(/,/g,""), 10) || 0;
+  return `<div class="rating-row">⭐ ${r.toFixed(1)}${reviewsNum ? ` <span class="rc">(${reviewsNum.toLocaleString('en-IN')})</span>` : ''}</div>`;
+}
+
+function dealLabel(d){
+  if(d.deal_text) return `<div class="deal-label">${esc(d.deal_text)}</div>`;
+  return "";
+}
+
 function cardHTML(d, mini){
   return `
     <a class="card ${mini?'card-mini':''}" href="${esc(d.link)}" target="_blank" rel="nofollow sponsored noopener">
@@ -288,6 +304,8 @@ function cardHTML(d, mini){
       </div>
       <div class="body">
         <div class="title">${esc(d.title)}</div>
+        ${ratingRow(d)}
+        ${dealLabel(d)}
         <div class="price-row">${priceRow(d)}</div>
         ${d.short_code ? `<span class="code-chip mono">#${esc(d.short_code)}</span>` : ''}
       </div>
