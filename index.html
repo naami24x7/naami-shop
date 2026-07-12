@@ -331,7 +331,7 @@ async function loadDeals(retry=0){
   if(retry===0) renderSkeletons();
   try{
     const url = new URL(API_BASE + '/api/public/deals');
-    url.searchParams.set('limit', 60);
+    url.searchParams.set('limit', 20);
     url.searchParams.set('sort', currentSort);
     if(currentCategory) url.searchParams.set('category', currentCategory);
     const res = await fetch(url);
