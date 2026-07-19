@@ -228,6 +228,11 @@
 </div>
 
 <div class="offers-wrap">
+  <div class="section-title">🆕 Fresh Deals</div>
+  <div class="offers-strip" id="fresh-strip"></div>
+</div>
+
+<div class="offers-wrap">
   <div class="section-title" id="spotlight-title">🏆 Best Sellers — Women's Fashion</div>
   <div class="offers-strip" id="spotlight-strip"></div>
 </div>
@@ -278,6 +283,7 @@ const SUBFILTERS = [
   {key:"trending",   label:"📈 Trending"},
   {key:"toprated",   label:"⭐ Top Rated"},
   {key:"popular",    label:"👀 Most Clicked"},
+  {key:"fresh",      label:"🆕 Freshly Added"},
 ];
 
 let currentCategory = null;
@@ -626,6 +632,7 @@ renderTabs();
 renderSubfilters();
 loadStrip('offers-strip', 'discount', 3);
 loadStrip('trending-strip', 'trending', 2);
+loadStrip('fresh-strip', 'fresh', 2);
 startSpotlightRotation();
 loadDeals();
 </script>
