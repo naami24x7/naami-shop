@@ -254,6 +254,7 @@
 const API_BASE = "https://naami-xann.onrender.com"; // ⚠️ update if your Render URL differs
 const DEALS_ENDPOINT = "/api/public/shop/deals";
 const TOP_DEALS_ENDPOINT = "/api/public/shop/top_deals";
+const PULSE_ENDPOINT = "/api/public/shop/pulse";
 // Code search stays on the LIVE posting-pipeline endpoint (amazon_products) —
 // the code in an Instagram caption belongs to whatever got posted, not to
 // the separate curated shop_catalog browse list. Only the browse
@@ -488,11 +489,11 @@ function startStripAutoScroll(stripId){
   }, 2200);
 }
 
-async function loadStrip(stripId, sort, perCategory, retry=0){
+async function loadStrip(stripId, sort, perCategory, endpoint=PULSE_ENDPOINT, retry=0){
   const strip = document.getElementById(stripId);
   if(retry===0) strip.innerHTML = Array.from({length:6}).map(()=>`<div class="skel card-mini"></div>`).join('');
   try{
-    const url = new URL(API_BASE + TOP_DEALS_ENDPOINT);
+    const url = new URL(API_BASE + endpoint);
     url.searchParams.set('per_category', perCategory);
     url.searchParams.set('sort', sort);
     const res = await fetch(url);
@@ -510,7 +511,7 @@ async function loadStrip(stripId, sort, perCategory, retry=0){
     startStripAutoScroll(stripId);
   }catch(e){
     if(retry < 4){
-      setTimeout(()=>loadStrip(stripId, sort, perCategory, retry+1), 4000 + retry*2000);
+      setTimeout(()=>loadStrip(stripId, sort, perCategory, endpoint, retry+1), 4000 + retry*2000);
     } else {
       strip.innerHTML = '';
     }
