@@ -4,9 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NAAMI — Deals Hub</title>
-<meta name="description" content="Search your product code or browse today's Amazon finds.">
+<meta name="description" content="Search your product code or browse today's curated Amazon finds — Women's & Men's Fashion, Kids, Beauty, Watches, Home & Kitchen, Pet Supplies, Mobile & Laptops.">
+<link rel="canonical" href="https://naami24x7.github.io/naami-shop/">
+
+<!-- Social share preview (Instagram bio link, WhatsApp, etc.) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NAAMI Deals Hub">
+<meta property="og:title" content="NAAMI — Deals Hub">
+<meta property="og:description" content="Curated Amazon finds across Women's & Men's Fashion, Kids, Beauty, Watches, Home & Kitchen, Pet Supplies, Mobile & Laptops. Got a code from a post? Search it here.">
+<meta property="og:url" content="https://naami24x7.github.io/naami-shop/">
+<meta property="og:image" content="https://naami24x7.github.io/naami-shop/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="NAAMI — Deals Hub">
+<meta name="twitter:description" content="Curated Amazon finds — search your product code or browse today's top picks.">
+<meta name="twitter:image" content="https://naami24x7.github.io/naami-shop/icons/icon-512.png">
+
+<!-- PWA / add-to-home-screen -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#05080f">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NAAMI">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://naami-xann.onrender.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -127,6 +151,12 @@
   .card .thumb img{width:100%; height:100%; object-fit:contain; padding:6px;}
   .badge{position:absolute; top:6px; left:6px; background:var(--red); color:#fff; font-size:9.5px;
     font-weight:700; padding:2px 6px; border-radius:5px; letter-spacing:.2px;}
+  .heart-btn{position:absolute; top:5px; right:5px; width:24px; height:24px; border-radius:50%;
+    background:rgba(5,8,15,.55); backdrop-filter:blur(2px); border:0; display:flex; align-items:center;
+    justify-content:center; font-size:13px; cursor:pointer; z-index:2; transition:transform .12s;}
+  .heart-btn:active{transform:scale(.85);}
+  .heart-btn.saved{background:rgba(255,61,87,.15);}
+  .verified-row{font-size:9px; color:var(--green); display:flex; align-items:center; gap:3px; margin-top:1px;}
   .card .body{padding:6px 7px 7px; display:flex; flex-direction:column; gap:3px; flex:1;}
   .card .title{font-size:11px; line-height:1.28; color:var(--text); font-weight:500;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
@@ -222,11 +252,15 @@ const CATEGORY_LABELS = {
   "laptop": "Laptops",
 };
 
+const CLICK_ENDPOINT = "/api/public/shop/click";
+const SAVED_KEY = "naami-saved-v1";
+
 const SUBFILTERS = [
   {key:"discount",   label:"🔥 Best Discount"},
   {key:"bestseller", label:"🏆 Best Seller"},
   {key:"trending",   label:"📈 Trending"},
   {key:"toprated",   label:"⭐ Top Rated"},
+  {key:"popular",    label:"👀 Most Clicked"},
 ];
 
 let currentCategory = null;
@@ -235,6 +269,46 @@ let allDeals = [];
 
 function esc(s){
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// ── Saved/wishlist — stored client-side only, in this visitor's own
+// browser. Never sent anywhere; purely a "come back later" convenience. ──
+function getSaved(){
+  try{ return JSON.parse(localStorage.getItem(SAVED_KEY) || "[]"); }catch(e){ return []; }
+}
+function isSaved(asin){
+  return getSaved().some(d => d.asin === asin);
+}
+function toggleSaved(d){
+  let list = getSaved();
+  const idx = list.findIndex(x => x.asin === d.asin);
+  if(idx >= 0){ list.splice(idx, 1); }
+  else{ list.unshift(d); list = list.slice(0, 100); }
+  try{ localStorage.setItem(SAVED_KEY, JSON.stringify(list)); }catch(e){}
+  return idx < 0; // true if now saved
+}
+
+// ── Click tracking — real taps on the affiliate link, fire-and-forget.
+// Powers the honest "Most Clicked" sort (no fabricated view counts). ──────
+function trackClick(d){
+  if(!d.category || !d.asin) return;
+  try{
+    const url = new URL(API_BASE + CLICK_ENDPOINT);
+    url.searchParams.set('category', d.category);
+    url.searchParams.set('asin', d.asin);
+    fetch(url, {keepalive:true}).catch(()=>{});
+  }catch(e){}
+}
+
+function relTime(iso){
+  if(!iso) return null;
+  const then = new Date(iso).getTime();
+  if(isNaN(then)) return null;
+  const mins = Math.max(1, Math.round((Date.now() - then) / 60000));
+  if(mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if(hrs < 48) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
 }
 
 function priceRow(d){
@@ -255,7 +329,8 @@ function discountBadge(d){
 
 function renderTabs(){
   const tabs = document.getElementById('tabs');
-  const cats = [{key:null,label:"All"}, ...Object.keys(CATEGORY_LABELS).map(k=>({key:k,label:CATEGORY_LABELS[k]}))];
+  const cats = [{key:null,label:"All"}, ...Object.keys(CATEGORY_LABELS).map(k=>({key:k,label:CATEGORY_LABELS[k]})),
+    {key:"__saved__", label:"❤️ Saved"}];
   tabs.innerHTML = cats.map(c =>
     `<div class="tab ${c.key===currentCategory?'active':''}" data-cat="${c.key ?? ''}">${c.label}</div>`
   ).join('');
@@ -272,7 +347,7 @@ function renderTabs(){
 
 function renderSubfilters(){
   const box = document.getElementById('subfilters');
-  if(!currentCategory){ box.classList.add('hidden'); box.innerHTML = ''; return; }
+  if(!currentCategory || currentCategory === "__saved__"){ box.classList.add('hidden'); box.innerHTML = ''; return; }
   box.classList.remove('hidden');
   box.innerHTML = SUBFILTERS.map(s =>
     `<div class="subfilter ${s.key===currentSort?'active':''}" data-sort="${s.key}">${s.label}</div>`
@@ -298,11 +373,21 @@ function dealLabel(d){
   return "";
 }
 
+function verifiedRow(d){
+  const t = relTime(d.last_verified_at);
+  if(!t) return "";
+  return `<div class="verified-row">✓ Verified ${t}</div>`;
+}
+
 function cardHTML(d, mini){
   return `
-    <a class="card ${mini?'card-mini':''}" href="${esc(d.link)}" target="_blank" rel="nofollow sponsored noopener">
+    <a class="card ${mini?'card-mini':''}" href="${esc(d.link)}" target="_blank" rel="nofollow sponsored noopener"
+       data-category="${esc(d.category)}" data-asin="${esc(d.asin)}" onclick="trackClick({category:'${esc(d.category)}',asin:'${esc(d.asin)}'})">
       <div class="thumb">
         ${discountBadge(d)}
+        <button class="heart-btn ${isSaved(d.asin)?'saved':''}"
+          aria-label="Save to wishlist"
+          onclick="event.preventDefault(); event.stopPropagation(); const nowSaved = toggleSaved({asin:'${esc(d.asin)}',category:'${esc(d.category)}',title:'${esc((d.title||'').replace(/'/g,'')).slice(0,140)}',image:'${esc(d.image)}',price:'${esc(d.price||'')}',list_price:'${esc(d.list_price||'')}',discount_percent:'${esc(d.discount_percent||'')}',rating:'${esc(d.rating||'')}',reviews:'${esc(d.reviews||'')}',link:'${esc(d.link)}',short_code:'${esc(d.short_code||'')}'}); this.classList.toggle('saved', nowSaved); this.textContent = nowSaved ? '❤️' : '🤍'; if(currentCategory==='__saved__' && !nowSaved) loadDeals();">${isSaved(d.asin)?'❤️':'🤍'}</button>
         <img src="${esc(d.image)}" alt="${esc(d.title)}" loading="lazy" onerror="this.style.opacity=0">
       </div>
       <div class="body">
@@ -310,6 +395,7 @@ function cardHTML(d, mini){
         ${ratingRow(d)}
         ${dealLabel(d)}
         <div class="price-row">${priceRow(d)}</div>
+        ${verifiedRow(d)}
         ${d.short_code ? `<span class="code-chip mono">#${esc(d.short_code)}</span>` : ''}
       </div>
     </a>`;
@@ -318,9 +404,12 @@ function cardHTML(d, mini){
 function renderGrid(deals){
   const grid = document.getElementById('grid');
   const title = document.getElementById('grid-title');
-  title.textContent = currentCategory ? CATEGORY_LABELS[currentCategory].replace(/&amp;/,'&') : "Today's Finds";
+  title.textContent = currentCategory === "__saved__" ? "Your Saved Picks"
+    : currentCategory ? CATEGORY_LABELS[currentCategory].replace(/&amp;/,'&') : "Today's Finds";
   if(!deals.length){
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;">No deals here yet — check back soon or try another category.</div>`;
+    grid.innerHTML = currentCategory === "__saved__"
+      ? `<div class="empty" style="grid-column:1/-1;">Nothing saved yet — tap the 🤍 on any card to keep it here.</div>`
+      : `<div class="empty" style="grid-column:1/-1;">No deals here yet — check back soon or try another category.</div>`;
     return;
   }
   grid.innerHTML = deals.map(d => cardHTML(d, false)).join('');
@@ -331,6 +420,11 @@ function renderSkeletons(n=8){
 }
 
 async function loadDeals(retry=0){
+  if(currentCategory === "__saved__"){
+    allDeals = getSaved();
+    renderGrid(allDeals);
+    return;
+  }
   if(retry===0) renderSkeletons();
   try{
     const url = new URL(API_BASE + DEALS_ENDPOINT);
@@ -413,7 +507,7 @@ async function searchCode(retry=0){
     const data = await res.json();
     const p = data.product;
     box.innerHTML = `
-      <a class="result-card" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">
+      <a class="result-card" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener" onclick="trackClick({category:'${esc(p.category||'')}',asin:'${esc(p.asin||'')}'})">
         <img src="${esc(p.image)}" alt="" onerror="this.style.opacity=0">
         <div style="flex:1;min-width:0;">
           <div class="rt">${esc(p.title)}</div>
