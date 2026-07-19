@@ -219,6 +219,11 @@
   <div class="offers-strip" id="offers-strip"></div>
 </div>
 
+<div class="offers-wrap">
+  <div class="section-title">📈 Trending Now</div>
+  <div class="offers-strip" id="trending-strip"></div>
+</div>
+
 <div class="tabs" id="tabs"></div>
 <div class="subfilters hidden" id="subfilters"></div>
 
@@ -453,43 +458,45 @@ async function loadDeals(retry=0){
   }
 }
 
-// ── "Top Offers" strip: 2 highest-discount picks from every category,
-// gently auto-scrolls to grab attention, pauses while the user is
-// touching/dragging it, resumes a couple seconds after they let go. ──────
-let offersAutoScroll = null;
+// ── Horizontal picks strips (Top Offers / Trending): 2-3 picks from every
+// category, gently auto-scrolls to grab attention, pauses while the user
+// is touching/dragging it, resumes a couple seconds after they let go. ──
+const stripAutoScroll = {}; // stripId -> interval handle
 
-function startOffersAutoScroll(){
-  const strip = document.getElementById('offers-strip');
-  clearInterval(offersAutoScroll);
-  if(!strip.children.length) return;
-  offersAutoScroll = setInterval(()=>{
-    if(!strip.isConnected) return clearInterval(offersAutoScroll);
+function startStripAutoScroll(stripId){
+  const strip = document.getElementById(stripId);
+  clearInterval(stripAutoScroll[stripId]);
+  if(!strip || !strip.children.length) return;
+  stripAutoScroll[stripId] = setInterval(()=>{
+    if(!strip.isConnected) return clearInterval(stripAutoScroll[stripId]);
     const atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 4;
     strip.scrollTo({left: atEnd ? 0 : strip.scrollLeft + 118, behavior:'smooth'});
   }, 2200);
 }
 
-async function loadTopOffers(retry=0){
-  const strip = document.getElementById('offers-strip');
+async function loadStrip(stripId, sort, perCategory, retry=0){
+  const strip = document.getElementById(stripId);
   if(retry===0) strip.innerHTML = Array.from({length:6}).map(()=>`<div class="skel card-mini"></div>`).join('');
   try{
     const url = new URL(API_BASE + TOP_DEALS_ENDPOINT);
-    url.searchParams.set('per_category', 3);
+    url.searchParams.set('per_category', perCategory);
+    url.searchParams.set('sort', sort);
     const res = await fetch(url);
     const data = await res.json();
     const deals = data.deals || [];
-    if(!deals.length){ strip.innerHTML = ''; return; }
+    if(!deals.length){ strip.innerHTML = ''; strip.closest('.offers-wrap').style.display = 'none'; return; }
+    strip.closest('.offers-wrap').style.display = '';
     strip.innerHTML = deals.map(d => cardHTML(d, true)).join('');
     let resumeTimer;
     strip.addEventListener('pointerdown', ()=>{
-      clearInterval(offersAutoScroll);
+      clearInterval(stripAutoScroll[stripId]);
       clearTimeout(resumeTimer);
-      resumeTimer = setTimeout(startOffersAutoScroll, 3000);
+      resumeTimer = setTimeout(()=>startStripAutoScroll(stripId), 3000);
     });
-    startOffersAutoScroll();
+    startStripAutoScroll(stripId);
   }catch(e){
     if(retry < 4){
-      setTimeout(()=>loadTopOffers(retry+1), 4000 + retry*2000);
+      setTimeout(()=>loadStrip(stripId, sort, perCategory, retry+1), 4000 + retry*2000);
     } else {
       strip.innerHTML = '';
     }
@@ -551,7 +558,8 @@ document.getElementById('code-input').addEventListener('keydown', e=>{ if(e.key=
 
 renderTabs();
 renderSubfilters();
-loadTopOffers();
+loadStrip('offers-strip', 'discount', 3);
+loadStrip('trending-strip', 'trending', 2);
 loadDeals();
 </script>
 </body>
