@@ -204,16 +204,22 @@
 
 <script>
 const API_BASE = "https://naami-xann.onrender.com"; // ⚠️ update if your Render URL differs
+const DEALS_ENDPOINT = "/api/public/shop/deals";
+const TOP_DEALS_ENDPOINT = "/api/public/shop/top_deals";
+const PRODUCT_ENDPOINT = "/api/public/shop/product";
 
+// Permanent shop categories — a fixed top-20 curated list per category,
+// not the live/rotating bot queue. Order here = tab order on the page.
 const CATEGORY_LABELS = {
+  "women": "Women's Fashion",
+  "men": "Men's Fashion",
+  "kids": "Kids",
   "home-kitchen": "Home &amp; Kitchen",
-  "bags-luggage": "Bags &amp; Luggage",
   "pet-supplies": "Pet Supplies",
+  "watches": "Watches",
   "beauty": "Beauty",
   "mobile": "Mobile &amp; Tech",
   "laptop": "Laptops",
-  "groceries": "Groceries",
-  "kids": "Kids",
 };
 
 const SUBFILTERS = [
@@ -327,7 +333,7 @@ function renderSkeletons(n=8){
 async function loadDeals(retry=0){
   if(retry===0) renderSkeletons();
   try{
-    const url = new URL(API_BASE + '/api/public/deals');
+    const url = new URL(API_BASE + DEALS_ENDPOINT);
     url.searchParams.set('limit', 20);
     url.searchParams.set('sort', currentSort);
     if(currentCategory) url.searchParams.set('category', currentCategory);
@@ -369,7 +375,7 @@ async function loadTopOffers(retry=0){
   const strip = document.getElementById('offers-strip');
   if(retry===0) strip.innerHTML = Array.from({length:6}).map(()=>`<div class="skel card-mini"></div>`).join('');
   try{
-    const url = new URL(API_BASE + '/api/public/top_deals');
+    const url = new URL(API_BASE + TOP_DEALS_ENDPOINT);
     url.searchParams.set('per_category', 2);
     const res = await fetch(url);
     const data = await res.json();
@@ -399,7 +405,7 @@ async function searchCode(retry=0){
   if(!code) return;
   if(retry===0) box.innerHTML = `<div class="state">Searching…</div>`;
   try{
-    const res = await fetch(`${API_BASE}/api/public/product/${encodeURIComponent(code)}`);
+    const res = await fetch(`${API_BASE}${PRODUCT_ENDPOINT}/${encodeURIComponent(code)}`);
     if(res.status === 404){
       box.innerHTML = `<div class="state error">No product found for code "${esc(code)}" — double check the caption.</div>`;
       return;
