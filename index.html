@@ -137,6 +137,9 @@
   .card-mini .title{font-size:10.5px; -webkit-line-clamp:2;}
   .card-mini .price{font-size:12.5px;}
 
+  #spotlight-strip, #spotlight-title{transition:opacity .35s;}
+  #spotlight-strip.fading, #spotlight-title.fading{opacity:0;}
+
   main{max-width:1040px; margin:0 auto; padding:22px 20px 60px;}
   .section-title{font-size:13px; font-weight:600; color:var(--text2); text-transform:uppercase;
     letter-spacing:1.5px; margin:0 0 14px;}
@@ -222,6 +225,11 @@
 <div class="offers-wrap">
   <div class="section-title">📈 Trending Now</div>
   <div class="offers-strip" id="trending-strip"></div>
+</div>
+
+<div class="offers-wrap">
+  <div class="section-title" id="spotlight-title">🏆 Best Sellers — Women's Fashion</div>
+  <div class="offers-strip" id="spotlight-strip"></div>
 </div>
 
 <div class="tabs" id="tabs"></div>
@@ -503,6 +511,64 @@ async function loadStrip(stripId, sort, perCategory, retry=0){
   }
 }
 
+// ── "Spotlight" strip: rotates through specific category+subfilter combos
+// (e.g. "Best Sellers — Women's Fashion", "Top Rated — Laptops") every
+// ~9s so people actually see those subcategory picks instead of never
+// tapping into a category tab + subfilter manually. ──────────────────────
+const SPOTLIGHTS = [
+  {cat:"women",        sort:"bestseller", label:"🏆 Best Sellers — Women's Fashion"},
+  {cat:"laptop",       sort:"toprated",   label:"⭐ Top Rated — Laptops"},
+  {cat:"men",          sort:"bestseller", label:"🏆 Best Sellers — Men's Fashion"},
+  {cat:"beauty",       sort:"trending",   label:"📈 Trending — Beauty"},
+  {cat:"kids",         sort:"discount",   label:"🔥 Best Deals — Kids"},
+  {cat:"mobile",       sort:"bestseller", label:"🏆 Best Sellers — Mobile & Tech"},
+  {cat:"watches",      sort:"toprated",   label:"⭐ Top Rated — Watches"},
+  {cat:"home-kitchen", sort:"toprated",   label:"⭐ Top Rated — Home & Kitchen"},
+  {cat:"pet-supplies", sort:"bestseller", label:"🏆 Best Sellers — Pet Supplies"},
+];
+let spotlightIdx = 0;
+let spotlightTimer = null;
+
+async function loadSpotlight(idx){
+  const s = SPOTLIGHTS[idx];
+  const strip = document.getElementById('spotlight-strip');
+  const title = document.getElementById('spotlight-title');
+  try{
+    const url = new URL(API_BASE + DEALS_ENDPOINT);
+    url.searchParams.set('category', s.cat);
+    url.searchParams.set('sort', s.sort);
+    url.searchParams.set('limit', 10);
+    const res = await fetch(url);
+    const data = await res.json();
+    const deals = data.deals || [];
+    strip.classList.add('fading'); title.classList.add('fading');
+    setTimeout(()=>{
+      title.textContent = s.label;
+      strip.innerHTML = deals.length ? deals.map(d => cardHTML(d, true)).join('') : '';
+      strip.scrollTo({left:0});
+      strip.classList.remove('fading'); title.classList.remove('fading');
+    }, 350);
+  }catch(e){ /* skip this rotation silently, next timer tick tries the next combo */ }
+}
+
+function startSpotlightRotation(){
+  loadSpotlight(spotlightIdx);
+  clearInterval(spotlightTimer);
+  spotlightTimer = setInterval(()=>{
+    spotlightIdx = (spotlightIdx + 1) % SPOTLIGHTS.length;
+    loadSpotlight(spotlightIdx);
+  }, 9000);
+}
+(function initSpotlightPause(){
+  const strip = document.getElementById('spotlight-strip');
+  let resumeTimer;
+  strip.addEventListener('pointerdown', ()=>{
+    clearInterval(spotlightTimer);
+    clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(startSpotlightRotation, 6000);
+  });
+})();
+
 async function searchCode(retry=0){
   const input = document.getElementById('code-input');
   const code = input.value.trim().toUpperCase();
@@ -560,6 +626,7 @@ renderTabs();
 renderSubfilters();
 loadStrip('offers-strip', 'discount', 3);
 loadStrip('trending-strip', 'trending', 2);
+startSpotlightRotation();
 loadDeals();
 </script>
 </body>
